@@ -1,21 +1,12 @@
-<<<<<<< HEAD
 import pickle
 from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
 
-MODEL_NAMES = ["crop_model.pkl", "crop_recommendation_model.pkl", "crop_recommendation_model.pkl"]
-SCALER_NAMES = ["scaler.pkl", "standard_scaler.pkl"]
-ENCODER_NAMES = ["label_encoder.pkl", "encoder.pkl", "label_encoder.sav"]
-
-
-class ModelLoadError(Exception):
-    pass
-
 
 class CropPredictor:
-    """Loads a trained model, scaler and encoder once and provides predict()."""
+    """Load the trained model and make predictions."""
 
     def __init__(self, model_dir: Optional[Path] = None):
         base = Path(__file__).parent
@@ -26,45 +17,42 @@ class CropPredictor:
         self._load_resources()
 
     def _find_file(self, names):
-        # check models directory first, then parent folder
+        """Search for a file in the models folder or the project root."""
         for name in names:
             p = self.model_dir / name
             if p.exists():
                 return p
         for name in names:
-            p = Path(__file__).parent.parent / name
+            p = Path(__file__).parent / name
             if p.exists():
                 return p
         return None
 
     def _load_resources(self):
-        model_path = self._find_file(MODEL_NAMES)
-        scaler_path = self._find_file(SCALER_NAMES)
-        encoder_path = self._find_file(ENCODER_NAMES)
+        """Load the trained model and optional preprocessing objects."""
+        model_path = self._find_file(["crop_model.pkl", "crop_recommendation_model.pkl"])
+        scaler_path = self._find_file(["scaler.pkl", "standard_scaler.pkl"])
+        encoder_path = self._find_file(["label_encoder.pkl", "encoder.pkl", "label_encoder.sav"])
 
         if model_path is None:
-            raise ModelLoadError(
-                "Trained model not found. Place the model file (e.g. crop_model.pkl) in Smart_Farming_AI/models or the project root."
+            raise FileNotFoundError(
+                "Trained model not found. Place crop_model.pkl in the models folder or project root."
             )
 
-        with open(model_path, "rb") as f:
-            self.model = pickle.load(f)
+        with model_path.open("rb") as handle:
+            self.model = pickle.load(handle)
 
         if scaler_path is not None:
-            with open(scaler_path, "rb") as f:
-                self.scaler = pickle.load(f)
+            with scaler_path.open("rb") as handle:
+                self.scaler = pickle.load(handle)
 
         if encoder_path is not None:
-            with open(encoder_path, "rb") as f:
-                self.encoder = pickle.load(f)
+            with encoder_path.open("rb") as handle:
+                self.encoder = pickle.load(handle)
 
-    def predict(self, features: np.ndarray) -> Tuple[str, Optional[float]]:
-        """Predict the crop and return (label, confidence).
-
-        Args:
-            features: 1D or 2D numpy array of raw or preprocessed features.
-        """
-        x = np.array(features)
+    def predict(self, features: np.ndarray | list[float]) -> Tuple[str, Optional[float]]:
+        """Predict a crop and return a confidence score if available."""
+        x = np.array(features, dtype=float)
         if x.ndim == 1:
             x = x.reshape(1, -1)
 
@@ -72,12 +60,9 @@ class CropPredictor:
             try:
                 x = self.scaler.transform(x)
             except Exception:
-                # assume already scaled
                 pass
 
         pred_idx = self.model.predict(x)
-
-        # decode label if encoder available
         label = str(pred_idx[0])
         if self.encoder is not None:
             try:
@@ -94,59 +79,3 @@ class CropPredictor:
                 confidence = None
 
         return label, confidence
-=======
-"""Prediction logic for the crop recommendation assistant."""
-
-from __future__ import annotations
-
-import pickle
-from pathlib import Path
-from typing import Any, Tuple
-
-
-class CropPredictor:
-    """Load and use the saved machine learning model."""
-
-    def __init__(self, model_path: str | None = None) -> None:
-        base_dir = Path(__file__).resolve().parent
-        candidate_paths = []
-        if model_path:
-            candidate_paths.append(Path(model_path))
-        candidate_paths.extend(
-            [
-                base_dir / "models" / "crop_model.pkl",
-                base_dir / "crop_recommendation_model.pkl",
-            ]
-        )
-
-        self.model_path = None
-        for candidate in candidate_paths:
-            if candidate.exists():
-                self.model_path = candidate
-                break
-
-        if self.model_path is None:
-            raise FileNotFoundError("Model file not found in expected locations")
-
-        self.model = self._load_model()
-
-    def _load_model(self) -> Any:
-        """Load the trained model artifact from disk."""
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {self.model_path}")
-
-        with self.model_path.open("rb") as handle:
-            return pickle.load(handle)
-
-    def predict(self, features: list[float]) -> Tuple[str, float | None]:
-        """Predict the crop and return the confidence score if available."""
-        if not isinstance(features, list):
-            raise ValueError("Features must be provided as a list of numbers")
-
-        prediction = self.model.predict([features])[0]
-        confidence = None
-        if hasattr(self.model, "predict_proba"):
-            probabilities = self.model.predict_proba([features])[0]
-            confidence = float(max(probabilities))
-        return str(prediction), confidence
->>>>>>> 05f08e4 (Initial Smart Farming AI assistant)
