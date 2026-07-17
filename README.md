@@ -1,54 +1,41 @@
 # Smart Farming AI Assistant
 
-A simple terminal-based AI assistant for crop recommendation. This project loads a trained ML model and provides crop predictions, stores cultivation records, and gives basic farming recommendations.
+This project provides a beginner-friendly crop prediction assistant powered by a trained machine learning model.
+
+## Features
+- Predict the most suitable crop from soil and environmental inputs
+- Display prediction confidence when available
+- Save each prediction in a CSV file
+- View previous cultivation records
+- Provide simple farming recommendations
 
 ## Installation
+1. Create and activate a Python environment.
+2. Install the required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-1. Create and activate a Python virtual environment (recommended):
-
+## Run the Application
 ```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# macOS / Linux
-source venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Model files
-
-Place your trained model artifacts in `Smart_Farming_AI/models/`:
-- `crop_model.pkl` (or a similarly named model file)
-- `scaler.pkl` (if used)
-- `label_encoder.pkl` (if used)
-
-The app will also check the project root for these files.
-
-## Run
-
-```bash
-cd "d:\crop dataset\Smart_Farming_AI"
 python app.py
 ```
 
-Follow the on-screen menu to predict crops or view records.
+## Project Structure
+- app.py: Main menu and user interaction
+- predictor.py: Loads the trained model and returns predictions
+- preprocessing.py: Validates and prepares user inputs
+- recommendations.py: Creates farming recommendations
+- record_manager.py: Stores and reads CSV records
+- models/: Contains the trained model and preprocessing artifacts
+- records/: Stores cultivation records
 
-## Project structure
-
-- `app.py` — CLI entry point and menu
-- `predictor.py` — model loader and prediction wrapper
-- `preprocessing.py` — input validation and feature ordering
-- `recommendations.py` — generate farming advice
-- `record_manager.py` — save and display cultivation records
-- `utils/helper.py` — small helper utilities
-- `models/` — place your model files here
-- `records/` — saved `cultivation_records.csv`
-
-## License
-
-MIT
+## Example
+When the app starts, choose option 1 and enter values such as:
+- Nitrogen: 90
+- Phosphorus: 42
+- Potassium: 43
+- Temperature: 24
+- Humidity: 60
+- pH: 6.5
+- Rainfall: 120

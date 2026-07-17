@@ -1,3 +1,9 @@
+<<<<<<< HEAD
 pandas
 scikit-learn
 colorama
+=======
+colorama>=0.4.6
+numpy>=1.26.0
+scikit-learn>=1.4.0
+>>>>>>> 05f08e4 (Initial Smart Farming AI assistant)

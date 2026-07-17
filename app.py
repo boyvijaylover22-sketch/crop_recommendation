@@ -1,84 +1,116 @@
-import sys
-from datetime import datetime
+"""Main entry point for the Smart Farming AI Assistant."""
+
+from __future__ import annotations
 
 from colorama import Fore, Style, init
 
 from predictor import CropPredictor
-from preprocessing import InputValidationError, preprocess_inputs
-from record_manager import RecordManager
+from preprocessing import InputPreprocessor
 from recommendations import RecommendationEngine
-from utils.helper import clear_screen, print_header, prompt_float_input, prompt_menu_choice
+from record_manager import RecordManager
+from utils.helper import format_confidence, prompt_float
+
+init(autoreset=True)
 
 
-def show_menu() -> None:
-    print_header("Smart Farming AI Assistant")
-    print("1. Predict Crop")
-    print("2. View Cultivation Records")
-    print("3. Exit")
-    print()
+class SmartFarmingAssistant:
+    """Interactive command-line assistant for crop prediction."""
 
+    def __init__(self) -> None:
+        self.predictor = CropPredictor()
+        self.preprocessor = InputPreprocessor()
+        self.recommender = RecommendationEngine()
+        self.record_manager = RecordManager()
 
-def get_soil_inputs() -> dict:
-    print_header("Enter Soil and Environmental Values")
-    inputs = {
-        "N": prompt_float_input("Nitrogen (N)", 0.0, 300.0),
-        "P": prompt_float_input("Phosphorus (P)", 0.0, 300.0),
-        "K": prompt_float_input("Potassium (K)", 0.0, 300.0),
-        "temperature": prompt_float_input("Temperature (°C)", -10.0, 60.0),
-        "humidity": prompt_float_input("Humidity (%)", 0.0, 100.0),
-        "ph": prompt_float_input("Soil pH", 0.0, 14.0),
-        "rainfall": prompt_float_input("Rainfall (mm)", 0.0, 1000.0),
-    }
-    return inputs
+    def run(self) -> None:
+        """Run the application menu loop."""
+        print(f"{Fore.GREEN}Smart Farming AI Assistant{Style.RESET_ALL}")
+        print("Welcome! Predict a crop and receive practical farming advice.\n")
 
+        while True:
+            self.show_menu()
+            choice = input("Choose an option: ").strip()
 
-def display_prediction(prediction: str, confidence: float, explanation: str) -> None:
-    print_header("Prediction Result")
-    print(f"{Fore.GREEN}Predicted crop:{Style.RESET_ALL} {prediction}")
-    if confidence is not None:
-        print(f"{Fore.CYAN}Confidence:{Style.RESET_ALL} {confidence:.2%}")
-    print(f"{Fore.YELLOW}Why this crop is suitable:{Style.RESET_ALL} {explanation}")
-    print()
+            if choice == "1":
+                self.handle_prediction()
+            elif choice == "2":
+                self.view_records()
+            elif choice == "3":
+                print(f"{Fore.YELLOW}Thank you for using the Smart Farming Assistant!{Style.RESET_ALL}")
+                break
+            else:
+                print(f"{Fore.RED}Please select a valid option.{Style.RESET_ALL}")
 
+    def show_menu(self) -> None:
+        """Display the available menu options."""
+        print("1. Predict Crop")
+        print("2. View Cultivation Records")
+        print("3. Exit")
 
-def main() -> None:
-    init(autoreset=True)
-    predictor = CropPredictor()
-    recommender = RecommendationEngine()
-    record_manager = RecordManager()
+    def handle_prediction(self) -> None:
+        """Collect user input, preprocess it, predict a crop, and save the result."""
+        print(f"\n{Fore.CYAN}Crop Prediction Form{Style.RESET_ALL}")
+        print("Enter the soil and environment values below.")
+        print("Type 'q' at any prompt to cancel.\n")
 
-    while True:
-        clear_screen()
-        show_menu()
-        choice = prompt_menu_choice("Please select an option (1-3): ", ["1", "2", "3"])
+        raw_inputs = {}
+        for field in self.preprocessor.feature_order:
+            value = prompt_float(f"{field}: ", cancelable=True)
+            if value is None:
+                print(f"{Fore.YELLOW}Prediction cancelled.{Style.RESET_ALL}")
+                return
+            raw_inputs[field] = value
 
-        if choice == "1":
-            try:
-                user_inputs = get_soil_inputs()
-                processed_inputs = preprocess_inputs(user_inputs)
-                prediction, confidence = predictor.predict(processed_inputs)
-                explanation = recommender.generate(prediction, processed_inputs)
-                display_prediction(prediction, confidence, explanation)
-                record_manager.save_record(
-                    processed_inputs, prediction, confidence, datetime.now()
-                )
-                input("Press Enter to return to the main menu...")
-            except InputValidationError as exc:
-                print(f"{Fore.RED}Input error:{Style.RESET_ALL} {exc}")
-                input("Press Enter to retry...")
-            except Exception as exc:
-                print(f"{Fore.RED}Unexpected error:{Style.RESET_ALL} {exc}")
-                input("Press Enter to return to the main menu...")
+        try:
+            processed_features = self.preprocessor.prepare_features(raw_inputs)
+            predicted_crop, confidence = self.predictor.predict(processed_features)
+            explanation = self.recommender.explain_crop_suitability(predicted_crop, raw_inputs)
+            recommendations = self.recommender.generate_recommendations(predicted_crop, raw_inputs)
 
-        elif choice == "2":
-            clear_screen()
-            record_manager.display_records()
-            input("Press Enter to return to the main menu...")
+            print(f"\n{Fore.GREEN}Predicted Crop: {predicted_crop}{Style.RESET_ALL}")
+            if confidence is not None:
+                print(f"Confidence: {format_confidence(confidence)}")
+            print(f"Why this crop fits: {explanation}")
+            print("\nRecommendations:")
+            for key, message in recommendations.items():
+                print(f"- {key.replace('_', ' ').title()}: {message}")
 
-        elif choice == "3":
-            print(f"{Fore.GREEN}Thank you for using Smart Farming AI. Goodbye!{Style.RESET_ALL}")
-            sys.exit(0)
+            record = {
+                "Date": self.record_manager.current_timestamp(),
+                "Nitrogen": raw_inputs["Nitrogen"],
+                "Phosphorus": raw_inputs["Phosphorus"],
+                "Potassium": raw_inputs["Potassium"],
+                "Temperature": raw_inputs["Temperature"],
+                "Humidity": raw_inputs["Humidity"],
+                "pH": raw_inputs["pH"],
+                "Rainfall": raw_inputs["Rainfall"],
+                "Predicted Crop": predicted_crop,
+            }
+            self.record_manager.save_record(record)
+            print(f"{Fore.BLUE}Prediction saved to cultivation records.{Style.RESET_ALL}")
+        except ValueError as exc:
+            print(f"{Fore.RED}{exc}{Style.RESET_ALL}")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            print(f"{Fore.RED}Unexpected error: {exc}{Style.RESET_ALL}")
+
+    def view_records(self) -> None:
+        """Display all saved cultivation records."""
+        records = self.record_manager.get_records()
+        if not records:
+            print(f"{Fore.YELLOW}No cultivation records found yet.{Style.RESET_ALL}")
+            return
+
+        print(f"\n{Fore.CYAN}Cultivation Records{Style.RESET_ALL}")
+        for record in records:
+            print("-" * 60)
+            print(f"Date: {record['Date']}")
+            print(f"Crop: {record['Predicted Crop']}")
+            print(
+                f"Soil/Climate: N={record['Nitrogen']}, P={record['Phosphorus']}, "
+                f"K={record['Potassium']}, Temp={record['Temperature']}, "
+                f"Humidity={record['Humidity']}, pH={record['pH']}, Rainfall={record['Rainfall']}"
+            )
 
 
 if __name__ == "__main__":
-    main()
+    SmartFarmingAssistant().run()

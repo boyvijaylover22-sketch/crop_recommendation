@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import pickle
 from pathlib import Path
 from typing import Optional, Tuple
@@ -93,3 +94,59 @@ class CropPredictor:
                 confidence = None
 
         return label, confidence
+=======
+"""Prediction logic for the crop recommendation assistant."""
+
+from __future__ import annotations
+
+import pickle
+from pathlib import Path
+from typing import Any, Tuple
+
+
+class CropPredictor:
+    """Load and use the saved machine learning model."""
+
+    def __init__(self, model_path: str | None = None) -> None:
+        base_dir = Path(__file__).resolve().parent
+        candidate_paths = []
+        if model_path:
+            candidate_paths.append(Path(model_path))
+        candidate_paths.extend(
+            [
+                base_dir / "models" / "crop_model.pkl",
+                base_dir / "crop_recommendation_model.pkl",
+            ]
+        )
+
+        self.model_path = None
+        for candidate in candidate_paths:
+            if candidate.exists():
+                self.model_path = candidate
+                break
+
+        if self.model_path is None:
+            raise FileNotFoundError("Model file not found in expected locations")
+
+        self.model = self._load_model()
+
+    def _load_model(self) -> Any:
+        """Load the trained model artifact from disk."""
+        if not self.model_path.exists():
+            raise FileNotFoundError(f"Model file not found: {self.model_path}")
+
+        with self.model_path.open("rb") as handle:
+            return pickle.load(handle)
+
+    def predict(self, features: list[float]) -> Tuple[str, float | None]:
+        """Predict the crop and return the confidence score if available."""
+        if not isinstance(features, list):
+            raise ValueError("Features must be provided as a list of numbers")
+
+        prediction = self.model.predict([features])[0]
+        confidence = None
+        if hasattr(self.model, "predict_proba"):
+            probabilities = self.model.predict_proba([features])[0]
+            confidence = float(max(probabilities))
+        return str(prediction), confidence
+>>>>>>> 05f08e4 (Initial Smart Farming AI assistant)
